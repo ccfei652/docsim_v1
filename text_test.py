@@ -4,7 +4,7 @@ import pandas as pd
 import numpy as np
 from doc_treatment import calculate_similarity_single, preprocess, document_vector
 
-df = pd.read_csv('./titles_vectors.csv')
+df = pd.read_csv('luiz-tests/with_unkown/titles_vectors.csv')
 
 # df['Title_Summary'] = df['Title'] + " " + df['Summary']
 #

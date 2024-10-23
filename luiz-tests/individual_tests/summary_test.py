@@ -2,7 +2,7 @@ import pandas as pd
 
 from doc_treatment import vector_matrix, similar_documents
 
-df = pd.read_csv('../arXiv-DataFrame.csv')
+df = pd.read_csv('../../arXiv-DataFrame.csv')
 
 summaries = df['Summary'].to_list()
 

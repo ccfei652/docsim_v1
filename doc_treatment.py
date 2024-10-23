@@ -1,7 +1,6 @@
 import numpy as np
 
 import spacy
-import en_core_web_sm
 from string import punctuation
 
 from gensim.models import KeyedVectors
@@ -9,7 +8,7 @@ from spacy.lang.en import stop_words
 
 from sklearn.metrics.pairwise import cosine_similarity
 
-nlp = en_core_web_sm.load()
+nlp = spacy.load("en_core_web_sm")
 stop_words = stop_words.STOP_WORDS
 punctuations = list(punctuation)
 
