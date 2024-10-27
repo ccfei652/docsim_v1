@@ -6,6 +6,7 @@ import spacy
 from spacy.lang.en import stop_words
 from gensim.models import KeyedVectors
 from sklearn.metrics.pairwise import cosine_similarity
+import ast
 
 ENTITY_WEIGHTS = {
     "ORG": 2.0,  # Organizações
@@ -45,10 +46,13 @@ class WithNerDocumentProcessor:
         for word in sentence:
             if word in model_words:
                 result_vector += self.model.get_vector(word)
+                continue
             if word.lower() in model_words:
                 result_vector += self.model.get_vector(word.lower())
+                continue
             if word.title() in model_words:
                 result_vector += self.model.get_vector(word.title())
+                continue
 
         return result_vector
 
@@ -99,6 +103,10 @@ class WithNerSimilarityAnalyzer:
         cleaned_string = re.sub(r'[\[\]\n]', '', string_vector)
         return np.fromstring(cleaned_string.strip(), sep=' ')
 
+    @staticmethod
+    def string_to_object(string_object):
+        return ast.literal_eval(string_object)
+
     def add_title_plus_summary_column(self):
         self.df['Title_Summary'] = self.df['Title'] + " " + self.df['Summary']
 
@@ -116,17 +124,20 @@ class WithNerSimilarityAnalyzer:
     def calculate_similarities(self, user_input, user_entities, user_linked_entities):
         user_input_vector = self.processor.vectorize_text(user_input)
         self.df['title_similarity'] = self.df['title_vectors'].apply(
-            lambda x: self.processor.calculate_similarity(user_input_vector, x))
+            lambda x: self.processor.calculate_similarity(user_input_vector, self.string_to_vector(x)))
         self.df['summary_similarity'] = self.df['summary_vector'].apply(
-            lambda x: self.processor.calculate_similarity(user_input_vector, x))
+            lambda x: self.processor.calculate_similarity(user_input_vector, self.string_to_vector(x)))
         self.df['title_summary_similarity'] = self.df['title_summary_vector'].apply(
-            lambda x: self.processor.calculate_similarity(user_input_vector, x))
+            lambda x: self.processor.calculate_similarity(user_input_vector, self.string_to_vector(x)))
 
         self.df['entity_similarity'] = self.df['entities'].apply(
-            lambda x: self.calculate_entity_similarity(user_entities, x))
+            lambda x: self.calculate_entity_similarity(user_entities, self.string_to_object(x)))
 
         self.df['linked_entity_similarity'] = self.df['linked_entities'].apply(
-            lambda x: self.calculate_linked_entity_similarity(user_linked_entities, x))
+            lambda x: self.calculate_linked_entity_similarity(user_linked_entities, self.string_to_object(x)))
+
+        self.df['similarity_mean'] = self.df[
+            ['title_similarity', 'summary_similarity', 'title_summary_similarity']].mean(axis=1)
 
     @staticmethod
     def calculate_entity_similarity(user_entities, article_entities):
@@ -154,8 +165,8 @@ class WithNerSimilarityAnalyzer:
                             score += 0.5
         return score
 
-    def top_n_similar_documents(self, similarity_column, n=10):
-        return self.df.sort_values(by=[similarity_column], ascending=[False]).head(n)
+    def top_n_similar_documents(self, similarity_column, entity_column, n=10):
+        return self.df.sort_values(by=[similarity_column, entity_column], ascending=[False, False]).head(n)
 
 
 if __name__ == "__main__":
@@ -171,9 +182,9 @@ if __name__ == "__main__":
     analyzer = WithNerSimilarityAnalyzer(df=df, processor=processor)
 
     # Adicionar a coluna de entidades
-    # analyzer.add_title_plus_summary_column()
-    # analyzer.extract_and_add_entities_column()
-    # analyzer.extract_and_add_linked_entities_column()
+    analyzer.add_title_plus_summary_column()
+    analyzer.extract_and_add_entities_column()
+    analyzer.extract_and_add_linked_entities_column()
 
     # Aplicar vetorização
     analyzer.apply_vectorization()
@@ -182,7 +193,7 @@ if __name__ == "__main__":
     df.to_csv('titles_vectors.csv', index=False)
 
     # Definir input do usuário
-    user_input = "how to predict user input inside a user interface"
+    user_input = "Studies on mathematical biases and embedded computation in the field of applied mathematics"
     user_entities = processor.extract_entities(user_input)
     user_linked_entities = processor.extract_linked_entities(user_input)
 
@@ -191,15 +202,15 @@ if __name__ == "__main__":
 
     # Exibir top 10 documentos semelhantes
     print("Top 10 documentos mais semelhantes por Title Similarity:")
-    print(analyzer.top_n_similar_documents('title_similarity')[
+    print(analyzer.top_n_similar_documents('title_similarity', 'linked_entity_similarity')[
               ['Title', 'title_similarity', 'entity_similarity', 'linked_entity_similarity']])
 
     print("\nTop 10 documentos mais semelhantes por Summary Similarity:")
-    print(analyzer.top_n_similar_documents('summary_similarity')[
+    print(analyzer.top_n_similar_documents('summary_similarity',  'linked_entity_similarity')[
               ['Title', 'summary_similarity', 'entity_similarity', 'linked_entity_similarity']])
 
     print("\nTop 10 documentos mais semelhantes por Title + Summary Similarity:")
-    print(analyzer.top_n_similar_documents('title_summary_similarity')[
+    print(analyzer.top_n_similar_documents('title_summary_similarity', 'linked_entity_similarity')[
               ['Title', 'title_summary_similarity', 'entity_similarity', 'linked_entity_similarity']])
 
     # Salvar no CSV
